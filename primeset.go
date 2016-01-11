@@ -22,19 +22,24 @@ Example usage:
 */
 package primes
 
+import "math"
+
 // Set is a set of prime numbers.
 type Set interface {
-	IsPrime(n uint64) bool          // true iff n is prime
-	Iterator(start uint64) Iterator // allows for traversing the set
-	LargestNumber() uint64          // largest number in the set
-	LargestPrime() uint64           // largest prime number in the set
-	MemoryUsage() uint              // number of bytes used for the prime bits
+	IsPrime(n uint64) bool                    // true iff n is prime
+	Iterator(start uint64) Iterator           // allows for traversing the set
+	Factorizer(max uint64) Factorizer         // allows for quick factorization of numbers
+	LargestNumber() uint64                    // largest number in the set
+	LargestPrime() uint64                     // largest prime number in the set
+	MemoryUsage() uint                        // number of bytes used for the prime bits
+	SmallestFactorOf(n uint64) (uint64, bool) // smallest prime factor of a given number
 }
 
 // set is the internal implementation of Set.
 type set struct {
-	bits         []uint64 // bits for prime number candidates that are not divisible by 2 and 3
-	largestPrime uint64   // largest prime number in the set
+	bits          []uint64 // bits for prime number candidates that are not divisible by 2 and 3
+	largestNumber uint64   // largest number in the set
+	largestPrime  uint64   // largest prime number in the set
 }
 
 // NewPrimeSet creates a new set of prime numbers up to a given limit.
@@ -52,28 +57,8 @@ func NewPrimeSet(limit uint64) Set {
 	calculatePrimeBitSet(s.bits)
 	h, _ := highestSetBit(s.bits)
 	s.largestPrime = indexToNumber(h)
+	s.largestNumber = indexToNumber(uint(len(s.bits)<<6 - 1))
 	return s
-}
-
-// Iterator returns an iterator over the prime set that returns all primes in ascending order.
-func (s *set) Iterator(start uint64) Iterator {
-	if start <= 2 {
-		// starting from the beginning, so the next prime number is 2
-		return &iterator{s, 0, 2}
-	}
-	i := numberToIndex(start)
-	for {
-		n, found := nextSetBit(s.bits, i)
-		if !found {
-			// there is no next prime number in the set, so return an iterator that is already finished
-			return &iterator{s, 0, 0}
-		}
-		p := indexToNumber(n)
-		if p >= start {
-			return &iterator{s, n, p}
-		}
-		i++
-	}
 }
 
 // IsPrime returns true iff n is a prime number.
@@ -100,11 +85,32 @@ func (s *set) LargestPrime() uint64 {
 
 // LargestNumber returns the largest prime number in the set, i.e. the upper limit for IsPrime() etc.
 func (s *set) LargestNumber() uint64 {
-	return indexToNumber(uint(len(s.bits)<<6 - 1))
+	return s.largestNumber
 }
 
 func (s *set) MemoryUsage() uint {
 	return uint(len(s.bits) << 3)
+}
+
+// SmallestFactorOf returns the smallest prime factor of a given number.
+// If the set boundaries are exceeded during search, the second result is false.
+func (s *set) SmallestFactorOf(n uint64) (uint64, bool) {
+	if n == 0 {
+		return 0, false
+	}
+	limit := uint64(math.Ceil(math.Sqrt(float64(n))))
+	it := s.Iterator(0)
+	p, ok := it.Next()
+	for ok && p <= limit {
+		if n%p == 0 {
+			return p, true
+		}
+		p, ok = it.Next()
+	}
+	if limit > s.LargestNumber() {
+		return n, false
+	}
+	return n, true
 }
 
 // calculatePrimeBitSet initializes the prime bit set using a simple prime sieve.
@@ -130,7 +136,7 @@ func numberToIndex(n uint64) uint {
 	if n < 5 {
 		return 0
 	}
-	x2 := n / 2
+	x2 := n >> 1
 	x3 := n / 3
 	x23 := n / 6
 	return uint(n - (x2 + x3 - x23) - 1)

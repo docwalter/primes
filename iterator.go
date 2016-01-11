@@ -12,6 +12,27 @@ type iterator struct {
 	nextPrime uint64 // prime number that will be returned by the next Next() call or 0 after the end of the sequence
 }
 
+// Iterator returns an iterator over the prime set that returns all primes in ascending order.
+func (s *set) Iterator(start uint64) Iterator {
+	if start <= 2 {
+		// starting from the beginning, so the next prime number is 2
+		return &iterator{s, 0, 2}
+	}
+	i := numberToIndex(start)
+	for {
+		n, found := nextSetBit(s.bits, i)
+		if !found {
+			// there is no next prime number in the set, so return an iterator that is already finished
+			return &iterator{s, 0, 0}
+		}
+		p := indexToNumber(n)
+		if p >= start {
+			return &iterator{s, n, p}
+		}
+		i++
+	}
+}
+
 // Next returns the next prime number in the set in ascending order.
 func (i *iterator) Next() (uint64, bool) {
 	if i.nextPrime == 0 {

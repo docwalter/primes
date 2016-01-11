@@ -36,6 +36,28 @@ func TestIterators(t *testing.T) {
 	}
 }
 
+func TestSmallestFactorOf(t *testing.T) {
+	set := NewPrimeSet(1000000)
+	if f, ok := set.SmallestFactorOf(0); f != 0 || ok {
+		t.Error("smallest prime factor of 0 should not be ", f)
+	}
+	if f, ok := set.SmallestFactorOf(12345); f != 3 || !ok {
+		t.Error("smallest prime factor of 12345 is 3, not ", f)
+	}
+	if f, ok := set.SmallestFactorOf(31337); f != 31337 || !ok {
+		t.Error("yes, 31337 is also a prime number")
+	}
+	if f, ok := set.SmallestFactorOf(3133417967); f != 31337 || !ok { // exceed boundary, but smallest prime factor is within bounds
+		t.Error("smallest prime factor of 3133417967 is 31337, not ", f)
+	}
+	if f, ok := set.SmallestFactorOf(1001093); f != 1001093 || !ok { // prime number exceed boundary, but all possible factors are within bounds
+		t.Error("smallest prime factor of 1001093 should lead to error, not ", f)
+	}
+	if f, ok := set.SmallestFactorOf(1002187194649); ok { // possible factors exceed boundary
+		t.Error("smallest prime factor of 1002187194649 should lead to error, not ", f)
+	}
+}
+
 func BenchmarkInitialization(b *testing.B) {
 	NewPrimeSet(uint64(b.N))
 }
